@@ -1,0 +1,103 @@
+﻿@page "/search/{SearchTerm}"
+@page "/search/{SearchTerm}/maxlength/{MaxLength:int}"
+
+@inject HttpClient Http
+@inject NavigationManager NavManager
+
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item">
+            <a href="/">Home</a>
+        </li>
+        <li class="breadcrumb-item active" aria-current="page">Search</li>
+    </ol>
+</nav>
+
+<h3 class="mt-5 mb-4">Search results for "@SearchTerm"</h3>
+
+<SearchFilter SearchTerm="@SearchTerm" MinLength="MinLength" MaxLength="MaxLength" MaxHrs="MaxHrs" />
+
+@if (_searchResults == null)
+{
+    <p>Loading search results...</p>
+}
+else
+{
+    <TrailDetails Trail="_selectedTrail" />
+    <div class="grid">
+        @foreach (var trail in _searchResults)
+        {
+            <TrailCard Trail="trail" OnSelected="HandleTrailSelected" />
+        }
+    </div>
+}
+
+@code {
+    private IEnumerable<Trail>? _searchResults;
+    private Trail? _selectedTrail;
+    private IEnumerable<Trail> _cachedSearchResults = Array.Empty<Trail>();
+
+    // Page parameters
+    [Parameter] public string SearchTerm { get; set; } = default!;
+    [Parameter, SupplyParameterFromQuery] public int? MinLength { get; set; }
+    [Parameter, SupplyParameterFromQuery] public int? MaxLength { get; set; }
+    [Parameter, SupplyParameterFromQuery] public int? MaxHrs { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            // Load the trails from the json file:
+            var allTrails = await Http.GetFromJsonAsync<IEnumerable<Trail>>("trails/trail-data.json");
+
+            // Get all trails that contain the search term in the name or location:
+            _searchResults = allTrails!.Where(x => x.Name.Contains(SearchTerm, StringComparison.CurrentCultureIgnoreCase) 
+                || x.Location.Contains(SearchTerm, StringComparison.CurrentCultureIgnoreCase));
+
+            // Save the unfiltered search results to the "cached" field:
+            _cachedSearchResults = _searchResults;
+        }
+        catch (HttpRequestException ex)
+        {
+            Console.WriteLine($"There was a problem loading trail data:{ex.Message}");
+        }
+    }
+
+    // Parameters have changed, update the search results as needed.
+    protected override void OnParametersSet() 
+        => UpdateFilters();
+
+    private void UpdateFilters()
+    {
+        // Filters is a list of lambda expressions based on the provided filters:
+        var filters = new List<Func<Trail, bool>>();
+
+        // Add the lambda expressions for filter values that are present:
+        if (MinLength is not null && MinLength > 0)
+        {
+            filters.Add(x => x.Length >= MinLength);
+        }
+        if (MaxLength is not null && MaxLength > 0)
+        {
+            filters.Add(x => x.Length <= MaxLength);
+        }
+        if (MaxHrs is not null && MaxHrs > 0)
+        {
+            filters.Add(x => x.TimeInMinutes <= MaxHrs * 60);
+        }
+
+        // If any filters are specified, apply them, otherwise, just use the
+        // cached search results:
+        if (filters.Any())
+        {
+            _searchResults = _cachedSearchResults.Where(trail => filters.All(filter => filter(trail)));
+        }
+        else
+        {
+            _searchResults = _cachedSearchResults;
+        }
+    }
+
+    private void HandleTrailSelected(Trail trail)
+        => _selectedTrail = trail;
+}

@@ -1,0 +1,32 @@
+﻿@inject NavigationManager NavManager
+
+<div class="jumbotron">
+    <h1 class="display-4 text-center">Welcome to Blazing Trails</h1>
+    <p class="lead text-center">
+        Find the most beautiful hiking trails using our blazing fast search!
+    </p>
+    <p class="mt-4">
+      
+@*      Every time a key is pressed, update the bind value, then call the SearchForTrail method   *@
+        <input @onkeydown="SearchForTrail"
+               @bind="_searchTerm"
+               @bind:event="oninput"
+               type="text"
+               placeholder="Search for a trail..."
+               class="form-control form-control-lg" />
+    </p>
+</div>
+
+@code {
+    private string _searchTerm = "";
+
+    private void SearchForTrail(KeyboardEventArgs args)
+    {
+        // Do nothing if the last key pressed was not the ENTER key:
+        if (args.Key != "Enter") 
+            return;
+
+        // Go to the search results page and pass it the user-entered search text:
+        NavManager.NavigateTo($"/search/{_searchTerm}");
+    }
+}

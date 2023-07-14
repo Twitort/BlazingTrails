@@ -1,0 +1,103 @@
+﻿@inject NavigationManager NavManager
+@inject HttpClient Http
+
+<div class="filters">
+    <label for="minLength">Length: Min</label>
+
+    <input id="minLength" type="range" min="0" max="@_longestTrail" step="1" @bind="_minLength" oninput="this.nextElementSibling.value = this.value" />
+    <output>@_minLength</output>
+
+    <label for="maxLength">&nbsp;&nbsp;Max</label>
+
+    <input id="maxLength" type="range" min="0" max="@_longestTrail" step="1" @bind="_maxLength" oninput="this.nextElementSibling.value = this.value" />
+    <output>@_maxLength</output>
+
+    <label for="maxHrs">&nbsp;&nbsp;Hours: Max</label>
+
+    <input id="maxHrs"
+           type="number"
+           class="form-control"
+           @bind="_maxHrs" />
+
+    <button class="btn btn-outline-primary"
+            @onclick="FilterSearchResults">
+        Filter
+    </button>
+
+    <button class="btn btn-outline-secondary"
+            @onclick="ClearSearchFilter">
+        Clear
+    </button>
+
+</div>
+
+@code {
+    private int _minLength;
+    private int _maxLength;
+    private int _maxHrs;
+
+    private int _longestTrail;
+    private int _longestHrs;
+
+    [Parameter, EditorRequired]
+    public string SearchTerm { get; set; } = default!;
+
+    [Parameter] public int? MinLength { get; set; }
+    [Parameter] public int? MaxLength { get; set; }
+    [Parameter] public int? MaxHrs { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await GetTrailMaxVals();
+
+        // If there are parameters specified on entering the page (perhaps due to visiting a
+        // prior search result that was saved as a bookmark), then set those same values
+        // in the search criteria so they match what is shown in the search results:
+        _minLength = MinLength ?? 0;
+        _maxLength = MaxLength ?? 0;
+        _maxHrs = MaxHrs ?? 0;
+    }
+
+    private void FilterSearchResults()
+    {
+        // Build the URI (back to self - the page containing this component) 
+        // with the user-entered filter criteria (if any):
+        var uriWithQuerystring = NavManager.GetUriWithQueryParameters(new Dictionary<string, object?>()
+             {
+                [nameof(SearchPage.MinLength)] = _minLength == 0 ? null : _minLength,
+                [nameof(SearchPage.MaxLength)] = _maxLength == 0 ? null : _maxLength,
+                [nameof(SearchPage.MaxHrs)] = _maxHrs == 0 ? null : _maxHrs
+             });
+
+        // Navigate to the search page with the filter criteria:
+        NavManager.NavigateTo(uriWithQuerystring);
+    }
+
+    // Clears the filter by eliminating the filter part of the route, then navigating
+    // to the search results with just the search term (if any).
+    private void ClearSearchFilter()
+    {
+        _minLength = 0;
+        _maxLength = 0;
+        _maxHrs = 0;
+        NavManager.NavigateTo($"/search/{SearchTerm}");
+    }
+
+    private async Task GetTrailMaxVals()
+    {
+        try
+        {
+            // Load the trails from the json file:
+            var allTrails = await Http.GetFromJsonAsync<IEnumerable<Trail>>("trails/trail-data.json");
+
+            // Get max values from the trails:
+            _longestTrail = allTrails!.Max(x => x.Length);
+            _longestHrs = allTrails!.Max(x => x.TimeInMinutes/60) + 1;
+        }
+        catch (HttpRequestException ex)
+        {
+            Console.WriteLine($"There was a problem getting max values from trail data:{ex.Message}");
+        }
+    }
+
+}
