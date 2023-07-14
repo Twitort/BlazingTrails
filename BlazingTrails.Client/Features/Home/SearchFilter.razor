@@ -54,8 +54,8 @@
         // prior search result that was saved as a bookmark), then set those same values
         // in the search criteria so they match what is shown in the search results:
         _minLength = MinLength ?? 0;
-        _maxLength = MaxLength ?? 0;
-        _maxHrs = MaxHrs ?? 0;
+        _maxLength = MaxLength ?? _longestTrail;
+        _maxHrs = MaxHrs ?? _longestHrs;
     }
 
     private void FilterSearchResults()
